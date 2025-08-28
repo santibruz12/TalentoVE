@@ -1,5 +1,5 @@
 // Utilidad para realizar llamadas a la API del backend
-// Configuración centralizada para todas las operaciones CRUD del sistema RRHH
+// Configuración centralizada para todas las operaciones RRHH del sistema
 
 import { useState } from "react";
 import { 
@@ -48,16 +48,16 @@ async function hacerPeticion<T>(
 export const apiUsuarios = {
   obtenerTodos: (): Promise<Usuario[]> => 
     hacerPeticion("/usuarios"),
-  
+
   obtenerPorId: (id: number): Promise<Usuario> => 
     hacerPeticion(`/usuarios/${id}`),
-  
+
   crear: (datos: InsertUsuario): Promise<Usuario> => 
     hacerPeticion("/usuarios", {
       method: "POST",
       body: JSON.stringify(datos),
     }),
-  
+
   actualizar: (id: number, datos: Partial<InsertUsuario>): Promise<Usuario> => 
     hacerPeticion(`/usuarios/${id}`, {
       method: "PUT", 
@@ -76,20 +76,20 @@ export const apiEmpleados = {
     if (filtros?.departamento) params.append("departamento", filtros.departamento.toString());
     if (filtros?.estado) params.append("estado", filtros.estado);
     if (filtros?.busqueda) params.append("busqueda", filtros.busqueda);
-    
+
     const query = params.toString();
     return hacerPeticion(`/empleados${query ? `?${query}` : ""}`);
   },
-  
+
   obtenerPorId: (id: number): Promise<Empleado> => 
     hacerPeticion(`/empleados/${id}`),
-  
+
   crear: (datos: InsertEmpleado): Promise<Empleado> => 
     hacerPeticion("/empleados", {
       method: "POST",
       body: JSON.stringify(datos),
     }),
-  
+
   actualizar: (id: number, datos: Partial<InsertEmpleado>): Promise<Empleado> => 
     hacerPeticion(`/empleados/${id}`, {
       method: "PUT",
@@ -101,7 +101,7 @@ export const apiEmpleados = {
 export const apiDepartamentos = {
   obtenerTodos: (): Promise<Departamento[]> => 
     hacerPeticion("/departamentos"),
-  
+
   crear: (datos: InsertDepartamento): Promise<Departamento> => 
     hacerPeticion("/departamentos", {
       method: "POST",
@@ -115,7 +115,7 @@ export const apiCargos = {
     const query = departamentoId ? `?departamento=${departamentoId}` : "";
     return hacerPeticion(`/cargos${query}`);
   },
-  
+
   crear: (datos: InsertCargo): Promise<Cargo> => 
     hacerPeticion("/cargos", {
       method: "POST",
@@ -132,20 +132,20 @@ export const apiContratos = {
     const params = new URLSearchParams();
     if (filtros?.estado) params.append("estado", filtros.estado);
     if (filtros?.empleado) params.append("empleado", filtros.empleado.toString());
-    
+
     const query = params.toString();
     return hacerPeticion(`/contratos${query ? `?${query}` : ""}`);
   },
-  
+
   obtenerProximosVencer: (dias: number): Promise<Contrato[]> => 
     hacerPeticion(`/contratos/proximos-vencer/${dias}`),
-  
+
   crear: (datos: InsertContrato): Promise<Contrato> => 
     hacerPeticion("/contratos", {
       method: "POST",
       body: JSON.stringify(datos),
     }),
-  
+
   actualizar: (id: number, datos: Partial<InsertContrato>): Promise<Contrato> => 
     hacerPeticion(`/contratos/${id}`, {
       method: "PUT",
@@ -157,10 +157,10 @@ export const apiContratos = {
 export const apiPeriodosPrueba = {
   obtenerTodos: (): Promise<PeriodoPrueba[]> => 
     hacerPeticion("/periodos-prueba"),
-  
+
   obtenerProximosVencer: (dias: number): Promise<PeriodoPrueba[]> => 
     hacerPeticion(`/periodos-prueba/proximos-vencer/${dias}`),
-  
+
   crear: (datos: InsertPeriodoPrueba): Promise<PeriodoPrueba> => 
     hacerPeticion("/periodos-prueba", {
       method: "POST",
@@ -175,7 +175,7 @@ export const apiEvaluaciones = {
       method: "POST",
       body: JSON.stringify(datos),
     }),
-  
+
   obtenerPorPeriodo: (periodoPruebaId: number): Promise<EvaluacionPrueba[]> => 
     hacerPeticion(`/evaluaciones-prueba/periodo/${periodoPruebaId}`),
 };
@@ -186,16 +186,16 @@ export const apiEgresos = {
     const query = estado ? `?estado=${estado}` : "";
     return hacerPeticion(`/egresos${query}`);
   },
-  
+
   obtenerPendientes: (): Promise<Egreso[]> => 
     hacerPeticion("/egresos/pendientes"),
-  
+
   crear: (datos: InsertEgreso): Promise<Egreso> => 
     hacerPeticion("/egresos", {
       method: "POST",
       body: JSON.stringify(datos),
     }),
-  
+
   actualizar: (id: number, datos: Partial<InsertEgreso>): Promise<Egreso> => 
     hacerPeticion(`/egresos/${id}`, {
       method: "PUT",
@@ -206,13 +206,19 @@ export const apiEgresos = {
 // ===== API DE DASHBOARD =====
 export const apiDashboard = {
   obtenerEstadisticas: (): Promise<{
-    empleadosActivos: number;
-    empleadosPeriodoPrueba: number;
-    contratosActivos: number;
-    periodosProximosVencer: number;
-    egresosPendientes: number;
     totalEmpleados: number;
+    empleadosPeriodoPrueba: number;
+    empleadosVacaciones: number;
+    nuevosIngresosUltimoMes: number;
+    nuevosIngresosUltimoTrimestre: number;
+    variacionPorcentaje: number;
+    periodosProximosVencer: number;
   }> => hacerPeticion("/dashboard/estadisticas"),
+
+  obtenerIngresosRecientes: (periodo: number = 30): Promise<Array<{
+    departamento: string;
+    cantidad: number;
+  }>> => hacerPeticion(`/dashboard/ingresos-recientes?periodo=${periodo}`),
 };
 
 // ===== UTILIDADES ADICIONALES =====
@@ -231,7 +237,7 @@ export const crearEstadoCarga = () => {
   const ejecutar = async <T>(promesa: Promise<T>): Promise<T | null> => {
     setCargando(true);
     setError(null);
-    
+
     try {
       const resultado = await promesa;
       return resultado;

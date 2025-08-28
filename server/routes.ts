@@ -355,27 +355,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/estadisticas", async (req, res) => {
     try {
       const empleados = await almacenamiento.listarEmpleados();
-      const empleadosActivos = empleados.filter(e => e.estadoEmpleado === "Activo");
+      const empleadosNoEgresados = empleados.filter(e => e.estadoEmpleado !== "Egresado");
       const empleadosPeriodoPrueba = empleados.filter(e => e.estadoEmpleado === "Periodo Prueba");
+      const empleadosVacaciones = empleados.filter(e => e.estadoEmpleado === "Vacaciones");
       
-      const contratos = await almacenamiento.listarContratos();
-      const contratosActivos = contratos.filter(c => c.estadoContrato === "Activo");
+      // Calcular nuevos ingresos del último mes
+      const fechaLimiteUltimoMes = new Date();
+      fechaLimiteUltimoMes.setMonth(fechaLimiteUltimoMes.getMonth() - 1);
+      const nuevosIngresosUltimoMes = empleados.filter(e => {
+        const fechaIngreso = new Date(e.fechaIngreso);
+        return fechaIngreso >= fechaLimiteUltimoMes && e.estadoEmpleado !== "Egresado";
+      }).length;
+
+      // Calcular nuevos ingresos del último trimestre
+      const fechaLimiteUltimoTrimestre = new Date();
+      fechaLimiteUltimoTrimestre.setMonth(fechaLimiteUltimoTrimestre.getMonth() - 3);
+      const nuevosIngresosUltimoTrimestre = empleados.filter(e => {
+        const fechaIngreso = new Date(e.fechaIngreso);
+        return fechaIngreso >= fechaLimiteUltimoTrimestre && e.estadoEmpleado !== "Egresado";
+      }).length;
+
+      // Variación del último mes (simulada)
+      const totalAnterior = empleadosNoEgresados.length - nuevosIngresosUltimoMes;
+      const variacionPorcentaje = totalAnterior > 0 ? Math.round(((nuevosIngresosUltimoMes / totalAnterior) * 100)) : 0;
       
       const periodosPrueba = await almacenamiento.listarPeriodosPruebaProximosVencer(7);
-      const egresos = await almacenamiento.listarEgresosPendientes();
-
+      
       const estadisticas = {
-        empleadosActivos: empleadosActivos.length,
+        totalEmpleados: empleadosNoEgresados.length,
         empleadosPeriodoPrueba: empleadosPeriodoPrueba.length,
-        contratosActivos: contratosActivos.length,
-        periodosProximosVencer: periodosPrueba.length,
-        egresosPendientes: egresos.length,
-        totalEmpleados: empleados.length
+        empleadosVacaciones: empleadosVacaciones.length,
+        nuevosIngresosUltimoMes,
+        nuevosIngresosUltimoTrimestre,
+        variacionPorcentaje,
+        periodosProximosVencer: periodosPrueba.length
       };
 
       res.json(estadisticas);
     } catch (error) {
       res.status(500).json({ error: "Error al obtener estadísticas" });
+    }
+  });
+
+  // Obtener ingresos recientes por departamento
+  app.get("/api/dashboard/ingresos-recientes", async (req, res) => {
+    try {
+      const { periodo = "30" } = req.query;
+      const dias = parseInt(periodo as string);
+      const ingresosRecientes = await almacenamiento.obtenerIngresosRecientes(dias);
+      res.json(ingresosRecientes);
+    } catch (error) {
+      res.status(500).json({ error: "Error al obtener ingresos recientes" });
     }
   });
 

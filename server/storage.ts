@@ -530,6 +530,35 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
     );
   }
 
+  async obtenerIngresosRecientes(dias: number): Promise<any[]> {
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - dias);
+    
+    const empleadosRecientes = Array.from(this.empleados.values()).filter(
+      (empleado) => {
+        const fechaIngreso = new Date(empleado.fechaIngreso);
+        return fechaIngreso >= fechaLimite && empleado.estadoEmpleado !== "Egresado";
+      }
+    );
+
+    // Agrupar por departamento
+    const ingresosPorDept = empleadosRecientes.reduce((acc, empleado) => {
+      const deptId = empleado.departamentoId;
+      const dept = this.departamentos.get(deptId);
+      const nombreDept = dept?.nombre || "Sin departamento";
+      
+      if (!acc[nombreDept]) {
+        acc[nombreDept] = 0;
+      }
+      acc[nombreDept]++;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(ingresosPorDept)
+      .map(([departamento, cantidad]) => ({ departamento, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad);
+  }
+
   // ===== MÉTODOS REASIGNACIONES =====
   async crearReasignacionSupervision(insertReasignacion: InsertReasignacionSupervision): Promise<ReasignacionSupervision> {
     const id = this.contadorReasignaciones++;

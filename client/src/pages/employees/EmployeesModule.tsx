@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import { Users, UserPlus, Search, Filter, FileText, Phone, Mail, Edit, Trash2, Eye, MapPin } from "lucide-react"
+import { Users, UserPlus, Search, Filter, FileText, Phone, Mail, Edit, Trash2, MapPin } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -26,7 +26,8 @@ const EmployeesModule = () => {
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<Empleado | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
-  
+
+
   const queryClient = useQueryClient()
 
   // Queries
@@ -67,6 +68,7 @@ const EmployeesModule = () => {
       toast.success("Empleado creado exitosamente")
       setModalAbierto(false)
       setModoEdicion(false)
+
     },
     onError: (error) => {
       toast.error(`Error al crear empleado: ${error.message}`)
@@ -96,21 +98,21 @@ const EmployeesModule = () => {
       nombres: "",
       apellidos: "",
       fechaNacimiento: "",
-      genero: "Masculino",
-      estadoCivil: "Soltero",
+      genero: "",
+      estadoCivil: "",
       telefono: "",
       direccion: "",
       ciudad: "",
-      estado: "Distrito Capital",
+      estado: "",
       codigoPostal: null,
       numeroEmpleado: "",
       fechaIngreso: "",
-      departamentoId: 1,
-      cargoId: 1,
+      departamentoId: undefined,
+      cargoId: undefined,
       supervisorId: null,
       salarioBase: "",
-      tipoNomina: "Mensual",
-      estadoEmpleado: "Activo",
+      tipoNomina: "",
+      estadoEmpleado: "",
     },
   })
 
@@ -118,11 +120,19 @@ const EmployeesModule = () => {
     // Preparar datos con campos obligatorios
     const datosCompletos = {
       ...datos,
+      // Proporcionar valores por defecto para campos que no pueden estar vacíos
+      genero: datos.genero || "Masculino",
+      estadoCivil: datos.estadoCivil || "Soltero",
+      estado: datos.estado || "Distrito Capital",
+      departamentoId: datos.departamentoId || 1,
+      cargoId: datos.cargoId || 1,
+      tipoNomina: datos.tipoNomina || "Mensual",
+      estadoEmpleado: datos.estadoEmpleado || "Activo",
       numeroEmpleado: `EMP-${Date.now()}`, // Generar número único
       creadoPor: 1,
       actualizadoPor: 1,
     }
-    
+
     if (modoEdicion && empleadoSeleccionado) {
       actualizarEmpleadoMutation.mutate({ 
         id: empleadoSeleccionado.id, 
@@ -134,17 +144,48 @@ const EmployeesModule = () => {
   }
 
   const abrirModalCrear = () => {
-    form.reset()
+    // Limpiar completamente el formulario con valores por defecto
+    form.reset({
+      email: "",
+      cedula: "",
+      nombres: "",
+      apellidos: "",
+      fechaNacimiento: "",
+      genero: "",
+      estadoCivil: "",
+      telefono: "",
+      direccion: "",
+      ciudad: "",
+      estado: "",
+      codigoPostal: null,
+      numeroEmpleado: "",
+      fechaIngreso: "",
+      departamentoId: undefined,
+      cargoId: undefined,
+      supervisorId: null,
+      salarioBase: "",
+      tipoNomina: "",
+      estadoEmpleado: "",
+    })
     setEmpleadoSeleccionado(null)
     setModoEdicion(false)
+
     setModalAbierto(true)
   }
 
   const abrirModalEditar = (empleado: Empleado) => {
     setEmpleadoSeleccionado(empleado)
     setModoEdicion(true)
+
     form.reset(empleado)
     setModalAbierto(true)
+  }
+
+  const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false)
+
+  const mostrarPerfilEmpleado = (empleado: Empleado) => {
+    setEmpleadoSeleccionado(empleado)
+    setModalPerfilAbierto(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -249,7 +290,7 @@ const EmployeesModule = () => {
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="Activo">Activo</SelectItem>
-                  <SelectItem value="Periodo Prueba">Período Prueba</SelectItem>
+                  <SelectItem value="PeriodoPrueba">Período Prueba</SelectItem>
                   <SelectItem value="Vacaciones">Vacaciones</SelectItem>
                   <SelectItem value="Licencia">Licencia</SelectItem>
                   <SelectItem value="Inactivo">Inactivo</SelectItem>
@@ -285,7 +326,7 @@ const EmployeesModule = () => {
               empleados.map((empleado) => {
                 const departamento = departamentos.find(d => d.id === empleado.departamentoId)
                 const cargo = cargos.find(c => c.id === empleado.cargoId)
-                
+
                 return (
                   <div key={empleado.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-4">
@@ -303,7 +344,7 @@ const EmployeesModule = () => {
                         <span className="text-xs text-muted-foreground">{departamento?.nombre || 'Sin departamento'}</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-4">
                       {getStatusBadge(empleado.estadoEmpleado)}
                       <div className="text-xs text-muted-foreground">
@@ -325,11 +366,8 @@ const EmployeesModule = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver perfil">
-                          <Eye className="h-4 w-4" />
-                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => abrirModalEditar(empleado)}>
+                      <Button variant="outline" size="sm" onClick={() => mostrarPerfilEmpleado(empleado)}>
                         Ver Perfil
                       </Button>
                     </div>
@@ -346,29 +384,50 @@ const EmployeesModule = () => {
         <Card>
           <CardHeader>
             <CardTitle>Distribución por Departamento</CardTitle>
+            <CardDescription>Empleados activos por departamento</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { dept: "Operaciones", count: 89, percentage: 36 },
-                { dept: "Administración", count: 67, percentage: 27 },
-                { dept: "Tecnología", count: 45, percentage: 18 },
-                { dept: "Marketing", count: 28, percentage: 11 },
-                { dept: "Recursos Humanos", count: 18, percentage: 8 }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm">{item.dept}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary" 
-                        style={{ width: `${item.percentage}%` }}
-                      />
+              {(() => {
+                // Calcular estadísticas reales por departamento
+                const empleadosActivos = empleados.filter(emp => emp.estadoEmpleado === "Activo");
+                const totalActivos = empleadosActivos.length;
+
+                const estadisticasPorDept = departamentos.map(dept => {
+                  const empleadosDelDept = empleadosActivos.filter(emp => emp.departamentoId === dept.id);
+                  const count = empleadosDelDept.length;
+                  const percentage = totalActivos > 0 ? Math.round((count / totalActivos) * 100) : 0;
+
+                  return {
+                    dept: dept.nombre,
+                    count,
+                    percentage
+                  };
+                }).filter(item => item.count > 0) // Solo mostrar departamentos con empleados
+                .sort((a, b) => b.count - a.count); // Ordenar por cantidad descendente
+
+                return estadisticasPorDept.length > 0 ? (
+                  estadisticasPorDept.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm">{item.dept}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary transition-all duration-300" 
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-8">{item.count}</span>
+                        <span className="text-xs text-muted-foreground w-10">{item.percentage}%</span>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium w-8">{item.count}</span>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    No hay empleados activos
                   </div>
-                </div>
-              ))}
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -409,7 +468,7 @@ const EmployeesModule = () => {
               {modoEdicion ? 'Editar Empleado' : 'Nuevo Empleado'}
             </DialogTitle>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Información Personal */}
@@ -487,10 +546,10 @@ const EmployeesModule = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Género *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-genero">
-                              <SelectValue placeholder="Seleccionar género" />
+                              <SelectValue placeholder="Escoger de la lista" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -509,10 +568,10 @@ const EmployeesModule = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Estado Civil</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-estadoCivil">
-                              <SelectValue placeholder="Seleccionar estado civil" />
+                              <SelectValue placeholder="Escoger de la lista" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -568,15 +627,15 @@ const EmployeesModule = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Estado del Empleado</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-estadoEmpleado">
-                              <SelectValue placeholder="Seleccionar estado" />
+                              <SelectValue placeholder="Escoger de la lista" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="Activo">Activo</SelectItem>
-                            <SelectItem value="Periodo Prueba">Período Prueba</SelectItem>
+                            <SelectItem value="PeriodoPrueba">Período Prueba</SelectItem>
                             <SelectItem value="Vacaciones">Vacaciones</SelectItem>
                             <SelectItem value="Licencia">Licencia</SelectItem>
                             <SelectItem value="Inactivo">Inactivo</SelectItem>
@@ -592,10 +651,10 @@ const EmployeesModule = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Departamento *</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value?.toString()}>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString() || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-departamento">
-                              <SelectValue placeholder="Seleccionar departamento" />
+                              <SelectValue placeholder="Escoger de la lista" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -616,10 +675,10 @@ const EmployeesModule = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Cargo *</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value?.toString()}>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString() || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-cargo">
-                              <SelectValue placeholder="Seleccionar cargo" />
+                              <SelectValue placeholder="Escoger de la lista" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -653,10 +712,10 @@ const EmployeesModule = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tipo de Nómina</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-tipoNomina">
-                              <SelectValue placeholder="Seleccionar tipo" />
+                              <SelectValue placeholder="Escoger de la lista" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -681,19 +740,152 @@ const EmployeesModule = () => {
                 >
                   Cancelar
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={crearEmpleadoMutation.isPending || actualizarEmpleadoMutation.isPending}
-                  data-testid="button-guardar"
-                >
-                  {(crearEmpleadoMutation.isPending || actualizarEmpleadoMutation.isPending) 
-                    ? "Guardando..." 
-                    : modoEdicion ? "Actualizar" : "Crear Empleado"
-                  }
-                </Button>
+
+                  <Button 
+                    type="submit" 
+                    disabled={crearEmpleadoMutation.isPending || actualizarEmpleadoMutation.isPending}
+                    data-testid="button-guardar"
+                  >
+                    {(crearEmpleadoMutation.isPending || actualizarEmpleadoMutation.isPending) 
+                      ? "Guardando..." 
+                      : modoEdicion ? "Actualizar" : "Crear Empleado"
+                    }
+                  </Button>
+
+
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para ver perfil del empleado */}
+      <Dialog open={modalPerfilAbierto} onOpenChange={setModalPerfilAbierto}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="font-medium text-primary text-lg">
+                  {empleadoSeleccionado?.nombres.charAt(0)}{empleadoSeleccionado?.apellidos.charAt(0)}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {empleadoSeleccionado?.nombres} {empleadoSeleccionado?.apellidos}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {empleadoSeleccionado?.cedula}
+                </p>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {empleadoSeleccionado && (
+            <div className="space-y-6">
+              {/* Información Personal */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-primary">Información Personal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Fecha de Nacimiento</label>
+                    <p className="text-sm">{empleadoSeleccionado.fechaNacimiento}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Género</label>
+                    <p className="text-sm">{empleadoSeleccionado.genero}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Estado Civil</label>
+                    <p className="text-sm">{empleadoSeleccionado.estadoCivil}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
+                    <p className="text-sm flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      {empleadoSeleccionado.telefono}
+                    </p>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-muted-foreground">Email</label>
+                    <p className="text-sm flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      {empleadoSeleccionado.email}
+                    </p>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-muted-foreground">Dirección</label>
+                    <p className="text-sm flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      {empleadoSeleccionado.direccion}, {empleadoSeleccionado.ciudad}, {empleadoSeleccionado.estado}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Información Laboral */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-primary">Información Laboral</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Cargo</label>
+                    <p className="text-sm font-medium">
+                      {cargos.find(c => c.id === empleadoSeleccionado.cargoId)?.titulo || 'Sin cargo'}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Departamento</label>
+                    <p className="text-sm">
+                      {departamentos.find(d => d.id === empleadoSeleccionado.departamentoId)?.nombre || 'Sin departamento'}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Número de Empleado</label>
+                    <p className="text-sm">{empleadoSeleccionado.numeroEmpleado}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Fecha de Ingreso</label>
+                    <p className="text-sm">{empleadoSeleccionado.fechaIngreso}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                    <div>{getStatusBadge(empleadoSeleccionado.estadoEmpleado)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Tipo de Nómina</label>
+                    <p className="text-sm">{empleadoSeleccionado.tipoNomina}</p>
+                  </div>
+                  {empleadoSeleccionado.salarioBase && (
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-medium text-muted-foreground">Salario Base</label>
+                      <p className="text-sm font-medium">${empleadoSeleccionado.salarioBase}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setModalPerfilAbierto(false)}
+                >
+                  Cerrar
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setModalPerfilAbierto(false)
+                    abrirModalEditar(empleadoSeleccionado)
+                  }}
+                  className="bg-primary hover:bg-primary-dark"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar Empleado
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

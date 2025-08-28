@@ -1,17 +1,49 @@
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { KPICard } from "@/components/dashboard/KPICard"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { 
   Users, 
   UserPlus, 
-  UserMinus, 
   Clock, 
+  Plane,
   AlertTriangle,
   TrendingUp,
   FileText,
-  Calendar
+  Calendar,
+  Building2
 } from "lucide-react"
+import { sistemaRRHH } from "@/lib/api"
 
 const Dashboard = () => {
+  const [periodoIngresos, setPeriodoIngresos] = useState<"mensual" | "trimestral">("mensual")
+  const [periodoIngresosRecientes, setPeriodoIngresosRecientes] = useState(30)
+
+  // Queries
+  const { data: estadisticas } = useQuery({
+    queryKey: ['/api/dashboard/estadisticas'],
+    queryFn: () => sistemaRRHH.dashboard.obtenerEstadisticas(),
+  })
+
+  const { data: empleados = [] } = useQuery({
+    queryKey: ['/api/empleados'],
+    queryFn: () => sistemaRRHH.empleados.obtenerTodos(),
+  })
+
+  const { data: departamentos = [] } = useQuery({
+    queryKey: ['/api/departamentos'],
+    queryFn: () => sistemaRRHH.departamentos.obtenerTodos(),
+  })
+
+  const { data: ingresosRecientes = [] } = useQuery({
+    queryKey: ['/api/dashboard/ingresos-recientes', periodoIngresosRecientes],
+    queryFn: () => sistemaRRHH.dashboard.obtenerIngresosRecientes(periodoIngresosRecientes),
+  })
+
+  const empleadosNoEgresados = empleados.filter(emp => emp.estadoEmpleado !== "Egresado")
+  
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -25,232 +57,240 @@ const Dashboard = () => {
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KPICard
-          title="Empleados Activos"
-          value="247"
-          change="+3 este mes"
+          title="Total Empleados"
+          value={estadisticas?.totalEmpleados?.toString() || "0"}
+          change={`+${estadisticas?.variacionPorcentaje || 0}% último mes`}
           changeType="positive"
           icon={Users}
-          description="Total de empleados en nómina"
+          description="Empleados activos en nómina"
         />
         <KPICard
-          title="Nuevos Ingresos"
-          value="12"
-          change="+4 vs mes anterior"
-          changeType="positive"
-          icon={UserPlus}
-          description="Contrataciones del mes"
-        />
-        <KPICard
-          title="Egresos"
-          value="5"
-          change="-2 vs mes anterior"
-          changeType="positive"
-          icon={UserMinus}
-          description="Salidas registradas"
-        />
-        <KPICard
-          title="En Período de Prueba"
-          value="18"
-          change="6 próximos a vencer"
+          title="Período de Prueba"
+          value={estadisticas?.empleadosPeriodoPrueba?.toString() || "0"}
+          change={`${estadisticas?.periodosProximosVencer || 0} terminan en 7 días`}
           changeType="neutral"
           icon={Clock}
-          description="Evaluaciones pendientes"
+          description="En evaluación"
+        />
+        <div className="space-y-2">
+          <KPICard
+            title="Nuevos Ingresos"
+            value={periodoIngresos === "mensual" 
+              ? (estadisticas?.nuevosIngresosUltimoMes?.toString() || "0")
+              : (estadisticas?.nuevosIngresosUltimoTrimestre?.toString() || "0")
+            }
+            change={`Último ${periodoIngresos === "mensual" ? "mes" : "trimestre"}`}
+            changeType="positive"
+            icon={UserPlus}
+            description="Contrataciones recientes"
+          />
+          <div className="flex gap-1 px-2">
+            <Button
+              size="sm" 
+              variant={periodoIngresos === "mensual" ? "default" : "outline"}
+              onClick={() => setPeriodoIngresos("mensual")}
+              className="text-xs h-6"
+            >
+              Mensual
+            </Button>
+            <Button
+              size="sm"
+              variant={periodoIngresos === "trimestral" ? "default" : "outline"}
+              onClick={() => setPeriodoIngresos("trimestral")}
+              className="text-xs h-6"
+            >
+              Trimestral
+            </Button>
+          </div>
+        </div>
+        <KPICard
+          title="Vacaciones"
+          value={estadisticas?.empleadosVacaciones?.toString() || "0"}
+          change="Empleados en vacaciones"
+          changeType="neutral"
+          icon={Plane}
+          description="Personal ausente"
         />
       </div>
 
       {/* Charts and Tables Row */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Recent Activities */}
+        {/* Department Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Actividades Recientes
+              <Building2 className="h-5 w-5" />
+              Distribución por Departamento
             </CardTitle>
             <CardDescription>
-              Últimas acciones en el sistema
+              Empleados activos por departamento
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  action: "Nuevo ingreso registrado",
-                  employee: "Carlos Rodríguez",
-                  time: "Hace 2 horas",
-                  type: "ingreso"
-                },
-                {
-                  action: "Período de prueba finalizado",
-                  employee: "Ana Martínez", 
-                  time: "Hace 4 horas",
-                  type: "evaluacion"
-                },
-                {
-                  action: "Contrato renovado",
-                  employee: "Luis Fernández",
-                  time: "Ayer",
-                  type: "contrato"
-                },
-                {
-                  action: "Egreso procesado",
-                  employee: "María Torres",
-                  time: "Hace 2 días",
-                  type: "egreso"
-                }
-              ].map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                  <div className={`w-2 h-2 rounded-full ${
-                    activity.type === "ingreso" ? "bg-success" :
-                    activity.type === "evaluacion" ? "bg-warning" :
-                    activity.type === "contrato" ? "bg-primary" : "bg-muted"
-                  }`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground">{activity.employee}</p>
+            <div className="space-y-3">
+              {(() => {
+                const totalActivos = empleadosNoEgresados.length;
+                
+                const estadisticasPorDept = departamentos.map(dept => {
+                  const empleadosDelDept = empleadosNoEgresados.filter(emp => emp.departamentoId === dept.id);
+                  const count = empleadosDelDept.length;
+                  const percentage = totalActivos > 0 ? Math.round((count / totalActivos) * 100) : 0;
+                  
+                  return {
+                    dept: dept.nombre,
+                    count,
+                    percentage
+                  };
+                }).filter(item => item.count > 0)
+                .sort((a, b) => b.count - a.count);
+
+                return estadisticasPorDept.length > 0 ? (
+                  estadisticasPorDept.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm">{item.dept}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary transition-all duration-300" 
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-8">{item.count}</span>
+                        <span className="text-xs text-muted-foreground w-10">{item.percentage}%</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    No hay empleados activos
                   </div>
-                  <span className="text-xs text-muted-foreground">{activity.time}</span>
-                </div>
-              ))}
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
 
-        {/* Alerts and Notifications */}
+        {/* Recent Hires by Department */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Alertas Importantes
+              <UserPlus className="h-5 w-5" />
+              Ingresos Recientes por Departamento
             </CardTitle>
             <CardDescription>
-              Acciones requeridas y recordatorios
+              Nuevas contrataciones por departamento
             </CardDescription>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={periodoIngresosRecientes === 30 ? "default" : "outline"}
+                onClick={() => setPeriodoIngresosRecientes(30)}
+                className="text-xs"
+              >
+                30 días
+              </Button>
+              <Button
+                size="sm"
+                variant={periodoIngresosRecientes === 90 ? "default" : "outline"}
+                onClick={() => setPeriodoIngresosRecientes(90)}
+                className="text-xs"
+              >
+                90 días
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                {
-                  title: "Períodos de Prueba por Vencer",
-                  description: "6 empleados completan su período en 7 días",
-                  priority: "high",
-                  action: "Revisar evaluaciones"
-                },
-                {
-                  title: "Contratos por Renovar",
-                  description: "3 contratos vencen este mes",
-                  priority: "medium", 
-                  action: "Gestionar renovaciones"
-                },
-                {
-                  title: "Documentación Pendiente",
-                  description: "2 expedientes incompletos",
-                  priority: "low",
-                  action: "Solicitar documentos"
-                },
-                {
-                  title: "Evaluaciones Atrasadas",
-                  description: "1 evaluación de período de prueba pendiente",
-                  priority: "high",
-                  action: "Contactar supervisor"
-                }
-              ].map((alert, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
-                    alert.priority === "high" ? "bg-destructive" :
-                    alert.priority === "medium" ? "bg-warning" : "bg-muted"
-                  }`} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{alert.title}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{alert.description}</p>
-                    <button className="text-xs text-primary hover:underline">
-                      {alert.action}
-                    </button>
+              {ingresosRecientes.length > 0 ? (
+                ingresosRecientes.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-success" />
+                      <span className="text-sm font-medium">{item.departamento}</span>
+                    </div>
+                    <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
+                      {item.cantidad} nuevo{item.cantidad !== 1 ? 's' : ''}
+                    </Badge>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No hay ingresos recientes en el período seleccionado
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Contratos por Tipo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Indefinido</span>
-                <span className="font-medium">189 (76%)</span>
+      {/* Alerts and Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Alertas Importantes
+          </CardTitle>
+          <CardDescription>
+            Acciones requeridas y recordatorios
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                <div className="w-2 h-2 rounded-full mt-2 bg-destructive" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Períodos de Prueba por Vencer</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {estadisticas?.periodosProximosVencer || 0} empleados completan su período en 7 días
+                  </p>
+                  <button className="text-xs text-primary hover:underline">
+                    Revisar evaluaciones
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Determinado</span>
-                <span className="font-medium">45 (18%)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Pasantías</span>
-                <span className="font-medium">13 (6%)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Por Departamento
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Operaciones</span>
-                <span className="font-medium">89 empleados</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Administración</span>
-                <span className="font-medium">67 empleados</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tecnología</span>
-                <span className="font-medium">45 empleados</span>
+              <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                <div className="w-2 h-2 rounded-full mt-2 bg-warning" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Empleados en Vacaciones</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {estadisticas?.empleadosVacaciones || 0} empleados actualmente de vacaciones
+                  </p>
+                  <button className="text-xs text-primary hover:underline">
+                    Ver calendario
+                  </button>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Próximos Eventos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Evaluaciones</span>
-                <span className="font-medium">5 pendientes</span>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                <div className="w-2 h-2 rounded-full mt-2 bg-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Nuevos Ingresos</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {estadisticas?.nuevosIngresosUltimoMes || 0} contrataciones en el último mes
+                  </p>
+                  <button className="text-xs text-primary hover:underline">
+                    Ver detalles
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Entrevistas</span>
-                <span className="font-medium">3 programadas</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Reuniones</span>
-                <span className="font-medium">2 esta semana</span>
+              <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+                <div className="w-2 h-2 rounded-full mt-2 bg-success" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Total de Personal</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {estadisticas?.totalEmpleados || 0} empleados activos en nómina
+                  </p>
+                  <button className="text-xs text-primary hover:underline">
+                    Ver empleados
+                  </button>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
