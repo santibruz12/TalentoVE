@@ -42,8 +42,13 @@ const Dashboard = () => {
     queryFn: () => sistemaRRHH.dashboard.obtenerIngresosRecientes(periodoIngresosRecientes),
   })
 
-  const empleadosNoEgresados = empleados.filter(emp => emp.estadoEmpleado !== "Egresado")
-  
+  const { data: periodosPruebaProximos = [] } = useQuery({
+    queryKey: ['/api/dashboard/periodos-prueba-proximos'],
+    queryFn: () => sistemaRRHH.dashboard.obtenerPeriodosPruebaProximos(7),
+  })
+
+  const empleadosActivos = empleados.filter(emp => emp.estadoEmpleado !== "Inactivo");
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -129,13 +134,13 @@ const Dashboard = () => {
           <CardContent>
             <div className="space-y-3">
               {(() => {
-                const totalActivos = empleadosNoEgresados.length;
-                
+                const totalActivos = empleadosActivos.length;
+
                 const estadisticasPorDept = departamentos.map(dept => {
-                  const empleadosDelDept = empleadosNoEgresados.filter(emp => emp.departamentoId === dept.id);
+                  const empleadosDelDept = empleadosActivos.filter(emp => emp.departamentoId === dept.id);
                   const count = empleadosDelDept.length;
                   const percentage = totalActivos > 0 ? Math.round((count / totalActivos) * 100) : 0;
-                  
+
                   return {
                     dept: dept.nombre,
                     count,
@@ -240,11 +245,25 @@ const Dashboard = () => {
               <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
                 <div className="w-2 h-2 rounded-full mt-2 bg-destructive" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Períodos de Prueba por Vencer</p>
+                  <p className="text-sm font-medium">Períodos de Prueba por Vencer (30 días)</p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    {estadisticas?.periodosProximosVencer || 0} empleados completan su período en 7 días
+                    {estadisticas?.periodosProximosVencer || 0} empleados completan su período de prueba en 7 días o menos
                   </p>
-                  <button className="text-xs text-primary hover:underline">
+                  {periodosPruebaProximos.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {periodosPruebaProximos.slice(0, 3).map((empleado, idx) => (
+                        <div key={idx} className="text-xs bg-destructive/10 text-destructive px-2 py-1 rounded">
+                          {empleado.nombres} {empleado.apellidos} - {empleado.diasRestantes} día{empleado.diasRestantes !== 1 ? 's' : ''} restante{empleado.diasRestantes !== 1 ? 's' : ''}
+                        </div>
+                      ))}
+                      {periodosPruebaProximos.length > 3 && (
+                        <div className="text-xs text-muted-foreground">
+                          +{periodosPruebaProximos.length - 3} más
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button className="text-xs text-primary hover:underline mt-2">
                     Revisar evaluaciones
                   </button>
                 </div>

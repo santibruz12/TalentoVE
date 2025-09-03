@@ -10,13 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import { Users, UserPlus, Search, Filter, FileText, Phone, Mail, Edit, Trash2, MapPin } from "lucide-react"
+import { Users, UserPlus, Search, Filter, FileText, Phone, Mail, Edit, Trash2, MapPin, Clock } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { sistemaRRHH } from "@/lib/api"
-import type { Empleado, InsertEmpleado, Departamento, Cargo } from "@shared/schema"
-import { insertEmpleadoSchema } from "@shared/schema"
+import type { Empleado, InsertEmpleado, Departamento, Cargo, InsertContrato } from "@shared/schema"
+import { insertEmpleadoSchema, TiposContrato } from "@shared/schema"
 import { validarCedula } from "@/utils/venezuelan-validators"
 
 const EmployeesModule = () => {
@@ -59,11 +59,22 @@ const EmployeesModule = () => {
     queryFn: () => sistemaRRHH.dashboard.obtenerEstadisticas(),
   })
 
+  const { data: ingresosRecientes = [] } = useQuery({
+    queryKey: ['/api/dashboard/ingresos-recientes', { periodo: '30' }],
+    queryFn: () => sistemaRRHH.dashboard.obtenerIngresosRecientes(30),
+  })
+
+  const { data: periodosPruebaProximos = [] } = useQuery({
+    queryKey: ['/api/dashboard/periodos-prueba-proximos'],
+    queryFn: () => sistemaRRHH.dashboard.obtenerPeriodosPruebaProximos(7),
+  })
+
   // Mutaciones
   const crearEmpleadoMutation = useMutation({
     mutationFn: sistemaRRHH.empleados.crear,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/empleados'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/contratos'] })
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/estadisticas'] })
       toast.success("Empleado creado exitosamente")
       setModalAbierto(false)
@@ -80,6 +91,8 @@ const EmployeesModule = () => {
       sistemaRRHH.empleados.actualizar(id, datos),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/empleados'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/contratos'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/estadisticas'] })
       toast.success("Empleado actualizado exitosamente")
       setModalAbierto(false)
       setModoEdicion(false)
@@ -116,8 +129,8 @@ const EmployeesModule = () => {
     },
   })
 
-  const onSubmit = (datos: any) => {
-    // Preparar datos con campos obligatorios
+  const onSubmit = async (datos: any) => {
+    // Preparar datos del empleado con campos obligatorios
     const datosCompletos = {
       ...datos,
       // Proporcionar valores por defecto para campos que no pueden estar vacíos
@@ -139,7 +152,39 @@ const EmployeesModule = () => {
         datos: datosCompletos
       })
     } else {
-      crearEmpleadoMutation.mutate(datosCompletos)
+      // Crear empleado y luego crear contrato automáticamente
+      try {
+        const nuevoEmpleado = await crearEmpleadoMutation.mutateAsync(datosCompletos)
+        
+        // Crear contrato automáticamente con marcador
+        const datosContrato: InsertContrato = {
+          empleadoId: nuevoEmpleado.id,
+          numeroContrato: `CONT-${nuevoEmpleado.numeroEmpleado.replace('EMP-', '')}-${new Date().getFullYear()}`,
+          tipoContrato: "Indefinido", // Tipo por defecto
+          fechaInicio: datos.fechaIngreso,
+          fechaFin: null, // Indefinido no tiene fecha fin
+          salario: parseFloat(datos.salarioBase) || 0,
+          moneda: "USD",
+          horarioTrabajo: "8:00 AM - 5:00 PM", // Horario por defecto
+          ubicacionTrabajo: "Oficina Principal", // Ubicación por defecto
+          clausulasEspeciales: [],
+          estadoContrato: "Borrador",
+          fechaFirma: null,
+          firmadoPorEmpleado: false,
+          firmadoPorEmpresa: false,
+          observaciones: "Contrato generado automáticamente al crear empleado",
+          generadoAutomaticamente: true, // MARCADOR CLAVE
+          creadoPor: 1,
+          actualizadoPor: 1
+        }
+        
+        await sistemaRRHH.contratos.crear(datosContrato)
+        
+        toast.success("Empleado y contrato creados exitosamente. Revise el contrato en el módulo de contratos.")
+      } catch (error) {
+        console.error("Error creando empleado/contrato:", error)
+        toast.error("Error al crear empleado o contrato")
+      }
     }
   }
 
@@ -228,37 +273,55 @@ const EmployeesModule = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{estadisticas?.totalEmpleados || 0}</div>
-            <p className="text-xs text-muted-foreground">Total empleados</p>
+            <p className="text-xs text-muted-foreground">
+              {estadisticas?.variacionPorcentaje > 0 ? '+' : ''}{estadisticas?.variacionPorcentaje || 0}% último mes
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Período Prueba</CardTitle>
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Período Prueba</CardTitle>
+            <UserPlus className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{estadisticas?.empleadosPeriodoPrueba || 0}</div>
-            <p className="text-xs text-muted-foreground">Próximos a evaluar</p>
+            <p className="text-xs text-muted-foreground">
+              {estadisticas?.periodosProximosVencer || 0} terminan en 7 días (30 días total)
+            </p>
+            {periodosPruebaProximos.length > 0 && (
+              <div className="mt-2">
+                <div className="text-xs text-warning font-medium">
+                  Próximos a vencer:
+                </div>
+                {periodosPruebaProximos.slice(0, 2).map((empleado, idx) => (
+                  <div key={idx} className="text-xs text-muted-foreground truncate">
+                    {empleado.nombres} {empleado.apellidos} ({empleado.diasRestantes}d)
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Activos</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Nuevos Ingresos</CardTitle>
+            <UserPlus className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{estadisticas?.empleadosActivos || 0}</div>
-            <p className="text-xs text-muted-foreground">Empleados activos</p>
+            <div className="text-2xl font-bold">{estadisticas?.nuevosIngresosUltimoMes || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Último mes ({estadisticas?.nuevosIngresosUltimoTrimestre || 0} último trimestre)
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contratos</CardTitle>
-            <Search className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Vacaciones</CardTitle>
+            <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{estadisticas?.contratosActivos || 0}</div>
-            <p className="text-xs text-muted-foreground">Contratos activos</p>
+            <div className="text-2xl font-bold">{estadisticas?.empleadosVacaciones || 0}</div>
+            <p className="text-xs text-muted-foreground">Empleados en vacaciones</p>
           </CardContent>
         </Card>
       </div>
@@ -389,8 +452,8 @@ const EmployeesModule = () => {
           <CardContent>
             <div className="space-y-3">
               {(() => {
-                // Calcular estadísticas reales por departamento
-                const empleadosActivos = empleados.filter(emp => emp.estadoEmpleado === "Activo");
+                // Calcular estadísticas reales por departamento (empleados activos: todos excepto "Inactivo")
+                const empleadosActivos = empleados.filter(emp => emp.estadoEmpleado !== "Inactivo");
                 const totalActivos = empleadosActivos.length;
 
                 const estadisticasPorDept = departamentos.map(dept => {
@@ -434,31 +497,78 @@ const EmployeesModule = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Validaciones Pendientes</CardTitle>
+            <CardTitle>Ingresos Recientes por Departamento</CardTitle>
+            <CardDescription>Nuevas contrataciones del último mes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { type: "Cédulas por verificar", count: 3, priority: "high" },
-                { type: "Documentos faltantes", count: 7, priority: "medium" },
-                { type: "Títulos por validar", count: 2, priority: "high" },
-                { type: "Referencias laborales", count: 5, priority: "low" }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      item.priority === "high" ? "bg-destructive" :
-                      item.priority === "medium" ? "bg-warning" : "bg-muted"
-                    }`} />
-                    <span className="text-sm">{item.type}</span>
+              {ingresosRecientes.length > 0 ? (
+                ingresosRecientes.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-success" />
+                      <span className="text-sm">{item.departamento}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{item.cantidad}</Badge>
+                      <span className="text-xs text-muted-foreground">empleados</span>
+                    </div>
                   </div>
-                  <Badge variant="outline">{item.count}</Badge>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  No hay ingresos recientes
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alertas de Períodos de Prueba */}
+      {periodosPruebaProximos.length > 0 && (
+        <Card className="border-warning/20 bg-warning/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-warning">
+              <Clock className="h-5 w-5" />
+              Alertas de Períodos de Prueba (30 días)
+            </CardTitle>
+            <CardDescription>
+              Empleados que completan su período de prueba en los próximos 7 días
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {periodosPruebaProximos.map((empleado, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-background border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                      <span className="font-medium text-warning">
+                        {empleado.nombres.charAt(0)}{empleado.apellidos.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <h3 className="font-medium">{empleado.nombres} {empleado.apellidos}</h3>
+                      <p className="text-sm text-muted-foreground">{empleado.cargo}</p>
+                      <p className="text-xs text-muted-foreground">{empleado.departamento}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-warning">{empleado.diasRestantes}</div>
+                      <div className="text-xs text-muted-foreground">día{empleado.diasRestantes !== 1 ? 's' : ''} restante{empleado.diasRestantes !== 1 ? 's' : ''}</div>
+                      <div className="text-xs text-muted-foreground">Vence: {empleado.fechaFinPeriodo}</div>
+                    </div>
+                    <Button className="bg-warning hover:bg-warning/90 text-white">
+                      Evaluar Ahora
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       {/* Modal para crear/editar empleado */}
       <Dialog open={modalAbierto} onOpenChange={setModalAbierto}>
@@ -672,26 +782,40 @@ const EmployeesModule = () => {
                   <FormField
                     control={form.control}
                     name="cargoId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cargo *</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString() || ""}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-cargo">
-                              <SelectValue placeholder="Escoger de la lista" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {cargos.map((cargo) => (
-                              <SelectItem key={cargo.id} value={cargo.id.toString()}>
-                                {cargo.titulo}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const departamentoSeleccionado = form.watch("departamentoId");
+                      const cargosFiltrados = departamentoSeleccionado 
+                        ? cargos.filter(cargo => cargo.departamentoId === departamentoSeleccionado)
+                        : cargos;
+                      
+                      return (
+                        <FormItem>
+                          <FormLabel>Cargo *</FormLabel>
+                          <Select onValueChange={(value) => {
+                            field.onChange(parseInt(value));
+                            // Auto-completar departamento si el cargo pertenece a un departamento específico
+                            const cargoSeleccionado = cargos.find(c => c.id === parseInt(value));
+                            if (cargoSeleccionado && !departamentoSeleccionado) {
+                              form.setValue("departamentoId", cargoSeleccionado.departamentoId);
+                            }
+                          }} value={field.value?.toString() || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-cargo">
+                                <SelectValue placeholder="Escoger de la lista" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {cargosFiltrados.map((cargo) => (
+                                <SelectItem key={cargo.id} value={cargo.id.toString()}>
+                                  {cargo.titulo}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
@@ -729,6 +853,7 @@ const EmployeesModule = () => {
                   />
                 </div>
               </div>
+
 
               {/* Botones de acción */}
               <div className="flex justify-end gap-2 pt-6">

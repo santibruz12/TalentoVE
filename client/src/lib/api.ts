@@ -23,6 +23,113 @@ import {
 
 const BASE_URL = "/api";
 
+// ===== TIPOS DE DATOS =====
+interface Contrato {
+  id: number;
+  empleadoId: number;
+  tipoContrato: string;
+  fechaInicio: string;
+  fechaFin?: string;
+  salarioBase: string;
+  estadoContrato: string;
+  detalles?: string;
+  fechaCreacion: Date;
+  fechaActualizacion: Date;
+  empleado?: {
+    nombres: string;
+    apellidos: string;
+    cedula: string;
+    numeroEmpleado: string;
+  };
+  departamento?: string;
+  cargo?: string;
+  motivoCambioCargo?: string; // Nuevo campo para el motivo del cambio de cargo
+}
+
+interface Empleado {
+  id: number;
+  nombres: string;
+  apellidos: string;
+  cedula: string;
+  fechaIngreso: string;
+  fechaSalida?: string | null;
+  estado: string;
+  departamentoId: number;
+  cargoId: number;
+  salario: string;
+  contactoEmergencia: string;
+  telefono: string;
+  direccion: string;
+  correoElectronico: string;
+  fechaNacimiento: string;
+  numeroCuentaBancaria: string;
+  bancoId: number;
+  tipoCuentaBancaria: string;
+  epsId: number;
+  afpId: number;
+  cajaCompensacionId: number;
+  salud: string;
+  fondoPensiones: string;
+  riesgoLaboral: string;
+  tipoContrato: string;
+  fechaFinContrato?: string | null;
+  detalles?: string | null;
+  departamento?: {
+    id: number;
+    nombre: string;
+  };
+  cargo?: {
+    id: number;
+    nombre: string;
+    departamentoId: number;
+  };
+  contratos?: Contrato[];
+}
+
+interface Departamento {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+}
+
+interface Cargo {
+  id: number;
+  nombre: string;
+  departamentoId: number;
+  departamento?: Departamento;
+}
+
+interface PeriodoPrueba {
+  id: number;
+  empleadoId: number;
+  fechaInicio: string;
+  fechaFin: string;
+  estado: string;
+  empleado?: Empleado;
+}
+
+interface EvaluacionPrueba {
+  id: number;
+  periodoPruebaId: number;
+  evaluadorId: number;
+  fechaEvaluacion: string;
+  calificacion: number;
+  comentarios: string;
+  evaluador?: Empleado;
+  periodoPrueba?: PeriodoPrueba;
+}
+
+interface Egreso {
+  id: number;
+  empleadoId: number;
+  fechaEgreso: string;
+  motivo: string;
+  estado: string;
+  detalles?: string;
+  empleado?: Empleado;
+}
+
+
 // Función genérica para hacer peticiones HTTP
 async function hacerPeticion<T>(
   url: string, 
@@ -125,20 +232,22 @@ export const apiCargos = {
 
 // ===== API DE CONTRATOS =====
 export const apiContratos = {
-  obtenerTodos: (filtros?: {
-    estado?: string;
-    empleado?: number;
-  }): Promise<Contrato[]> => {
-    const params = new URLSearchParams();
-    if (filtros?.estado) params.append("estado", filtros.estado);
-    if (filtros?.empleado) params.append("empleado", filtros.empleado.toString());
-
-    const query = params.toString();
-    return hacerPeticion(`/contratos${query ? `?${query}` : ""}`);
+  obtenerTodos: (filtros?: { busqueda?: string; estado?: string }): Promise<Contrato[]> => {
+    const params = new URLSearchParams()
+    if (filtros?.busqueda) params.append('busqueda', filtros.busqueda)
+    if (filtros?.estado) params.append('estado', filtros.estado)
+    const query = params.toString() ? `?${params}` : ''
+    return hacerPeticion(`/contratos${query}`)
   },
 
-  obtenerProximosVencer: (dias: number): Promise<Contrato[]> => 
-    hacerPeticion(`/contratos/proximos-vencer/${dias}`),
+  obtenerPorId: (id: number): Promise<Contrato> => 
+    hacerPeticion(`/contratos/${id}`),
+
+  obtenerPorEmpleado: (empleadoId: number): Promise<Contrato[]> => 
+    hacerPeticion(`/contratos/empleado/${empleadoId}`),
+
+  obtenerHistorial: (): Promise<Contrato[]> => 
+    hacerPeticion('/contratos/historial'),
 
   crear: (datos: InsertContrato): Promise<Contrato> => 
     hacerPeticion("/contratos", {
@@ -151,6 +260,14 @@ export const apiContratos = {
       method: "PUT",
       body: JSON.stringify(datos),
     }),
+
+  eliminar: (id: number): Promise<void> => 
+    hacerPeticion(`/contratos/${id}`, {
+      method: 'DELETE',
+    }),
+
+  proximosVencer: (dias: number = 30): Promise<Contrato[]> => 
+    hacerPeticion(`/contratos/proximos-vencer?dias=${dias}`),
 };
 
 // ===== API DE PERÍODOS DE PRUEBA =====
@@ -213,12 +330,27 @@ export const apiDashboard = {
     nuevosIngresosUltimoTrimestre: number;
     variacionPorcentaje: number;
     periodosProximosVencer: number;
+    contratosActivos: number;
+    contratosProximosVencer: number;
+    contratosVencidos: number;
   }> => hacerPeticion("/dashboard/estadisticas"),
 
   obtenerIngresosRecientes: (periodo: number = 30): Promise<Array<{
     departamento: string;
     cantidad: number;
   }>> => hacerPeticion(`/dashboard/ingresos-recientes?periodo=${periodo}`),
+
+  obtenerPeriodosPruebaProximos: (dias: number = 7): Promise<Array<{
+    id: number;
+    nombres: string;
+    apellidos: string;
+    cedula: string;
+    fechaIngreso: string;
+    fechaFinPeriodo: string;
+    diasRestantes: number;
+    departamento: string;
+    cargo: string;
+  }>> => hacerPeticion(`/dashboard/periodos-prueba-proximos?dias=${dias}`),
 };
 
 // ===== UTILIDADES ADICIONALES =====
@@ -260,9 +392,6 @@ export const sistemaRRHH = {
   departamentos: apiDepartamentos,
   cargos: apiCargos,
   contratos: apiContratos,
-  periodosPrueba: apiPeriodosPrueba,
-  evaluaciones: apiEvaluaciones,
-  egresos: apiEgresos,
   dashboard: apiDashboard,
 };
 

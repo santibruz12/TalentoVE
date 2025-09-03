@@ -91,6 +91,7 @@ export const contratos = pgTable("contratos", {
   fechaInicio: date("fecha_inicio").notNull(),
   fechaFin: date("fecha_fin"),
   salario: decimal("salario", { precision: 12, scale: 2 }).notNull(),
+  moneda: text("moneda").notNull().default("USD"),
   horarioTrabajo: text("horario_trabajo").notNull(),
   ubicacionTrabajo: text("ubicacion_trabajo").notNull(),
   clausulasEspeciales: text("clausulas_especiales").array(),
@@ -104,6 +105,10 @@ export const contratos = pgTable("contratos", {
   // Información adicional según legislación venezolana
   tiempoSocial: integer("tiempo_social").default(0), // años de servicio
   fideicomiso: decimal("fideicomiso", { precision: 12, scale: 2 }).default("0"),
+  observaciones: text("observaciones"),
+  
+  // Marcador para identificar contratos generados automáticamente
+  generadoAutomaticamente: boolean("generado_automaticamente").default(false),
   
   // Auditoría
   fechaCreacion: timestamp("fecha_creacion", { withTimezone: true }).defaultNow().notNull(),

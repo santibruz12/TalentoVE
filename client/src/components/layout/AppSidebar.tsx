@@ -1,10 +1,10 @@
 import { useState } from "react"
-import { 
-  Users, 
-  FileText, 
-  Clock, 
-  DoorOpen, 
-  BarChart3, 
+import {
+  Users,
+  FileText,
+  Clock,
+  DoorOpen,
+  BarChart3,
   Shield,
   ChevronRight,
   Building2
@@ -25,41 +25,41 @@ import {
 } from "@/components/ui/sidebar"
 
 const modules = [
-  { 
-    title: "Dashboard", 
-    url: "/", 
+  {
+    title: "Dashboard",
+    url: "/",
     icon: BarChart3,
-    description: "Indicadores y métricas" 
+    description: "Indicadores y métricas"
   },
-  { 
-    title: "Autenticación", 
-    url: "/auth", 
+  {
+    title: "Autenticación",
+    url: "/auth",
     icon: Shield,
-    description: "Roles y permisos" 
+    description: "Roles y permisos"
   },
-  { 
-    title: "Empleados", 
-    url: "/employees", 
+  {
+    title: "Empleados",
+    url: "/employees",
     icon: Users,
-    description: "Gestión de personal" 
+    description: "Gestión de personal"
   },
-  { 
-    title: "Contratos", 
-    url: "/contracts", 
+  {
+    title: "Contratos",
+    url: "/contracts",
     icon: FileText,
-    description: "Contratos y movimientos" 
+    description: "Contratos y movimientos"
   },
-  { 
-    title: "Períodos de Prueba", 
-    url: "/probation", 
+  {
+    title: "Períodos de Prueba",
+    url: "/probation",
     icon: Clock,
-    description: "Evaluaciones y seguimiento" 
+    description: "Evaluaciones y seguimiento"
   },
-  { 
-    title: "Egresos", 
-    url: "/departures", 
+  {
+    title: "Egresos",
+    url: "/departures",
     icon: DoorOpen,
-    description: "Salidas y finiquitos" 
+    description: "Salidas y finiquitos"
   },
 ]
 
@@ -75,8 +75,8 @@ export function AppSidebar() {
   }
 
   const getNavCls = (active: boolean) =>
-    active 
-      ? "bg-primary/10 text-primary border-r-2 border-primary font-medium" 
+    active
+      ? "bg-primary/10 text-primary border-r-2 border-primary font-medium"
       : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
 
   return (
@@ -96,6 +96,23 @@ export function AppSidebar() {
             </div>
           )}
         </div>
+        {!collapsed && (
+          <div className="mt-2 px-2">
+            <p className="text-xs text-muted-foreground font-medium">
+              {(() => {
+                const hoy = new Date()
+                const meses = [
+                  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+                ]
+                const dia = hoy.getDate().toString().padStart(2, '0')
+                const mes = meses[hoy.getMonth()]
+                const año = hoy.getFullYear()
+                return `${dia} de ${mes} de ${año}`
+              })()}
+            </p>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4">
@@ -107,12 +124,12 @@ export function AppSidebar() {
             <SidebarMenu className="space-y-2">
               {modules.map((module) => (
                 <SidebarMenuItem key={module.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     className="h-12 rounded-lg transition-all duration-200"
                   >
-                    <NavLink 
-                      to={module.url} 
+                    <NavLink
+                      to={module.url}
                       end={module.url === "/"}
                       className={({ isActive }) => getNavCls(isActive)}
                     >

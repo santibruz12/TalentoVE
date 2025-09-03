@@ -3,12 +3,35 @@ import { AppSidebar } from "./AppSidebar"
 import { Bell, Search, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useState, useEffect } from "react"
 
 interface AppLayoutProps {
   children: React.ReactNode
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const [fechaActual, setFechaActual] = useState("")
+
+  useEffect(() => {
+    const actualizarFecha = () => {
+      const hoy = new Date()
+      const meses = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+      ]
+      const dia = hoy.getDate().toString().padStart(2, '0')
+      const mes = meses[hoy.getMonth()]
+      const año = hoy.getFullYear()
+      setFechaActual(`${dia} de ${mes} de ${año}`)
+    }
+
+    actualizarFecha()
+    // Actualizar la fecha cada minuto por si cambia el día
+    const intervalo = setInterval(actualizarFecha, 60000)
+    
+    return () => clearInterval(intervalo)
+  }, [])
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-background">
@@ -48,6 +71,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           {/* Main Content */}
           <main className="flex-1 overflow-auto">
+            {/* Fecha alineada con el logo */}
+            <div className="px-6 pt-4 pb-2">
+              <div className="text-sm text-muted-foreground">
+                {fechaActual}
+              </div>
+            </div>
             {children}
           </main>
         </div>

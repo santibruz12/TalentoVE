@@ -58,6 +58,7 @@ export interface IAlmacenamiento {
   listarContratos(): Promise<Contrato[]>;
   listarContratosPorEstado(estado: string): Promise<Contrato[]>;
   listarContratosProximosVencer(dias: number): Promise<Contrato[]>;
+  eliminarContrato(id: number): Promise<boolean>;
 
   // ===== MOVIMIENTOS LABORALES =====
   crearMovimientoLaboral(movimiento: InsertMovimientoLaboral): Promise<MovimientoLaboral>;
@@ -234,6 +235,28 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
       fechaActualizacion: ahora,
     };
     this.empleados.set(id, empleado);
+
+    // Crear contrato inicial automáticamente
+    await this.crearContrato({
+      empleadoId: id,
+      numeroContrato: `CONT-${String(id).padStart(4, '0')}-${new Date().getFullYear()}`,
+      tipoContrato: "Indefinido",
+      fechaInicio: insertEmpleado.fechaIngreso,
+      fechaFin: null,
+      salario: insertEmpleado.salarioBase,
+      moneda: "USD",
+      horarioTrabajo: "Lunes a Viernes 8:00 AM - 5:00 PM",
+      ubicacionTrabajo: "Oficina Principal",
+      clausulasEspeciales: [],
+      estadoContrato: "Activo",
+      fechaFirma: insertEmpleado.fechaIngreso,
+      firmadoPorEmpleado: true,
+      firmadoPorEmpresa: true,
+      observaciones: "Contrato inicial generado automáticamente",
+      creadoPor: insertEmpleado.creadoPor || 1,
+      actualizadoPor: insertEmpleado.actualizadoPor || 1,
+    });
+
     return empleado;
   }
 
@@ -247,6 +270,20 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
       fechaActualizacion: new Date(),
     };
     this.empleados.set(id, empleadoActualizado);
+
+    // Si se actualiza la fecha de ingreso, actualizar el contrato inicial
+    if (datos.fechaIngreso) {
+      const contratos = await this.obtenerContratosPorEmpleado(id);
+      const contratoInicial = contratos.find(c => c.observaciones?.includes("Contrato inicial generado automáticamente"));
+      
+      if (contratoInicial) {
+        await this.actualizarContrato(contratoInicial.id, {
+          fechaInicio: datos.fechaIngreso,
+          fechaFirma: datos.fechaIngreso
+        });
+      }
+    }
+
     return empleadoActualizado;
   }
 
@@ -389,6 +426,10 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
       const fechaFin = new Date(contrato.fechaFin);
       return fechaFin <= fechaLimite && contrato.estadoContrato === "Activo";
     });
+  }
+
+  async eliminarContrato(id: number): Promise<boolean> {
+    return this.contratos.delete(id);
   }
 
   // ===== MÉTODOS MOVIMIENTOS LABORALES =====
@@ -629,6 +670,42 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
       activo: true,
     });
 
+    await this.crearDepartamento({
+      nombre: "Finanzas",
+      descripcion: "Gestión de recursos financieros",
+      gerenteId: null,
+      centroCoste: "FIN001",
+      activo: true,
+    });
+    await this.crearDepartamento({
+      nombre: "Ventas",
+      descripcion: "Comercialización de productos y servicios",
+      gerenteId: null,
+      centroCoste: "VEN001",
+      activo: true,
+    });
+    await this.crearDepartamento({
+      nombre: "Operaciones",
+      descripcion: "Gestión de procesos y producción",
+      gerenteId: null,
+      centroCoste: "OPR001",
+      activo: true,
+    });
+    await this.crearDepartamento({
+      nombre: "Investigación y Desarrollo",
+      descripcion: "Desarrollo de nuevos productos y mejoras",
+      gerenteId: null,
+      centroCoste: "I+D001",
+      activo: true,
+    });
+    await this.crearDepartamento({
+      nombre: "Atención al Cliente",
+      descripcion: "Soporte y servicio al cliente",
+      gerenteId: null,
+      centroCoste: "ATC001",
+      activo: true,
+    });
+
     // Crear cargos básicos
     await this.crearCargo({
       titulo: "Gerente de RRHH",
@@ -649,6 +726,57 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
       salarioMinimo: "6000",
       salarioMaximo: "10000",
       competenciasRequeridas: ["JavaScript", "React", "Node.js", "Base de Datos"],
+      activo: true,
+    });
+
+    await this.crearCargo({
+      titulo: "Director de Finanzas",
+      descripcion: "Responsable de la administración financiera",
+      departamentoId: 1,
+      nivelSalarial: 5,
+      salarioMinimo: "9000",
+      salarioMaximo: "15000",
+      competenciasRequeridas: ["Análisis Financiero", "Planificación Estratégica", "Liderazgo"],
+      activo: true,
+    });
+    await this.crearCargo({
+      titulo: "Ejecutivo de Ventas",
+      descripcion: "Captación y gestión de clientes",
+      departamentoId: 2,
+      nivelSalarial: 3,
+      salarioMinimo: "4000",
+      salarioMaximo: "8000",
+      competenciasRequeridas: ["Técnicas de Venta", "Negociación", "Comunicación"],
+      activo: true,
+    });
+    await this.crearCargo({
+      titulo: "Jefe de Operaciones",
+      descripcion: "Gestión de procesos operativos",
+      departamentoId: 3,
+      nivelSalarial: 4,
+      salarioMinimo: "7000",
+      salarioMaximo: "11000",
+      competenciasRequeridas: ["Gestión de Proyectos", "Optimización de Procesos", "Resolución de Problemas"],
+      activo: true,
+    });
+    await this.crearCargo({
+      titulo: "Investigador de Producto",
+      descripcion: "Estudio y desarrollo de nuevos productos",
+      departamentoId: 4,
+      nivelSalarial: 4,
+      salarioMinimo: "5000",
+      salarioMaximo: "9000",
+      competenciasRequeridas: ["Investigación de Mercado", "Innovación", "Creatividad"],
+      activo: true,
+    });
+    await this.crearCargo({
+      titulo: "Representante de Atención al Cliente",
+      descripcion: "Brindar soporte y resolver inquietudes de los clientes",
+      departamentoId: 5,
+      nivelSalarial: 2,
+      salarioMinimo: "3000",
+      salarioMaximo: "5000",
+      competenciasRequeridas: ["Empatía", "Resolución de Conflictos", "Comunicación Efectiva"],
       activo: true,
     });
 
@@ -737,7 +865,7 @@ export class AlmacenamientoMemoria implements IAlmacenamiento {
       supervisorId: 1,
       salarioBase: "6800.00",
       tipoNomina: "Mensual",
-      estadoEmpleado: "Periodo Prueba",
+      estadoEmpleado: "Activo",
       fechaEgreso: null,
       motivoEgreso: null,
       creadoPor: 1,
